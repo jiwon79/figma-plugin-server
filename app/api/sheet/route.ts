@@ -4,7 +4,25 @@ import { GaxiosError } from "gaxios";
 export async function GET(request: Request) {
   const query = new URL(request.url).searchParams;
   const sheetId = query.get('url');
-  if (sheetId == null) return;
+  const sheetName = query.get('sheetName');
+  if (sheetId == null) {
+    // Return Response with code 400
+    return new Response(JSON.stringify({
+      error: 'url is required',
+      errorCode: 'URL_REQUIRED',
+    }), {
+      status: 400,
+    });
+  }
+  if (sheetName == null) {
+
+    return new Response(JSON.stringify({
+      error: 'sheetName is required',
+      errorCode: 'SHEET_NAME_REQUIRED',
+    }), {
+      status: 400,
+    });
+  }
 
   const spreadsheetId = extractSpreadsheetId(sheetId);
   if (spreadsheetId === null) return;
@@ -31,7 +49,7 @@ export async function GET(request: Request) {
     const response = await sheets.spreadsheets.values.get(
       {
         spreadsheetId: spreadsheetId,
-        range: '시트1',
+        range: sheetName,
       }
     )
     console.log(response.data)
@@ -52,21 +70,9 @@ export async function GET(request: Request) {
     }
   }
 
-
-  // const response = await sheets.spreadsheets.values.append({
-  //   spreadsheetId: process.env.GOOGLE_SPREADSHEET_ID,
-  //   range: `${sheetName}!A2:${alphabet[answers.length + 2]}`,
-  //   valueInputOption: 'USER_ENTERED',
-  //   requestBody: {
-  //     values: [[koreanDateLocalString, ...answers, resultNum, resultString]],
-  //   },
-  // });
-
   return new Response(JSON.stringify({
     result: "result",
   }));
-
-
 }
 
 const extractSpreadsheetId = (url: string) => {
