@@ -3,9 +3,9 @@ import { GaxiosError } from "gaxios";
 
 export async function GET(request: Request) {
   const query = new URL(request.url).searchParams;
-  const sheetId = query.get('url');
+  const sheetUrl = query.get('sheetUrl');
   const sheetName = query.get('sheetName');
-  if (sheetId == null) {
+  if (sheetUrl == null) {
     // Return Response with code 400
     return new Response(JSON.stringify({
       error: 'url is required',
@@ -24,8 +24,8 @@ export async function GET(request: Request) {
     });
   }
 
-  const spreadsheetId = extractSpreadsheetId(sheetId);
-  if (spreadsheetId === null) return;
+  const sheetId = extractSpreadsheetId(sheetUrl);
+  if (sheetId === null) return;
 
   const auth = new google.auth.GoogleAuth({
     credentials: {
@@ -48,31 +48,77 @@ export async function GET(request: Request) {
   try {
     const response = await sheets.spreadsheets.values.get(
       {
-        spreadsheetId: spreadsheetId,
+        spreadsheetId: sheetId,
         range: sheetName,
       }
     )
     console.log(response.data)
     return new Response(JSON.stringify({
-      result: response.data,
+      range: response.data.range,
+      values: response.data.values,
     }))
 
   } catch (error: GaxiosError | any) {
     if (error instanceof GaxiosError) {
       console.log(error.code)
-      if (error.code == "403") {
-        console.log("PERMISSION_DENIED")
-      } else {
-        console.log(error)
+      console.log(typeof error.code)
+
+      if (error.code === undefined) {
+        console.log("error.code is undefined")
+        console.log(error.message)
+        return new Response(JSON.stringify({
+          error: error.message,
+          errorCode: 'UNEXPECTED_ERROR',
+        }));
+      }
+
+      switch (error.code.toString()) {
+        case "400":
+          if (error.message.startsWith("Unable to parse range")) {
+            return new Response(JSON.stringify({
+              error: error.message,
+              errorCode: 'UNABLE_TO_PARSE_RANGE',
+            }), {
+              status: 400,
+            });
+          } else {
+            console.log("UNEXPECTED_ERROR")
+            return new Response(JSON.stringify({
+              error: error.message,
+              errorCode: 'UNEXPECTED_ERROR',
+            }), {
+              status: 400,
+            });
+          }
+        case "403":
+          console.log("PERMISSION_DENIED")
+          return new Response(JSON.stringify({
+            error: error.message,
+            errorCode: 'PERMISSION_DENIED',
+          }), {
+            status: 403,
+          });
+        default:
+          return new Response(JSON.stringify({
+            error: error.message,
+            errorCode: 'UNEXPECTED_ERROR',
+          }), {
+            status: 400,
+          });
       }
     } else {
-      console.log(error)
+      return new Response(JSON.stringify({
+        error: error.message,
+        errorCode: 'UNEXPECTED_ERROR',
+      }), {
+        status: 400,
+      });
     }
-  }
 
-  return new Response(JSON.stringify({
-    result: "result",
-  }));
+    return new Response(JSON.stringify({
+      result: "result",
+    }));
+  }
 }
 
 const extractSpreadsheetId = (url: string) => {
