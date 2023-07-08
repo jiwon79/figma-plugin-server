@@ -25,7 +25,14 @@ export async function GET(request: Request) {
   }
 
   const sheetId = extractSpreadsheetId(sheetUrl);
-  if (sheetId === null) return;
+  if (sheetId === null) {
+    return new Response(JSON.stringify({
+      error: 'sheetUrl is invalid',
+      errorCode: 'INVALID_SHEET_URL',
+    }), {
+      status: 400,
+    });
+  }
 
   const auth = new google.auth.GoogleAuth({
     credentials: {
